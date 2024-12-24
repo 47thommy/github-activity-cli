@@ -41,3 +41,5 @@ This CLI fetches and displays the following types of GitHub events:
    - Type `exit` to quit.
 
 ---
+
+# project url = https://roadmap.sh/projects/github-user-activity
