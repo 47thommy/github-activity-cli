@@ -9,58 +9,64 @@ class GithubActivityCLI(cmd.Cmd):
 
     prompt = "github-activity-cli>>"
     intro = "Welcome to GIthub Activity CLI. type 'help' to see all available commands"
-    url = Template("https://api.github.com/users/$username/events")
+    BASE_URL_TEMPLATE = Template("https://api.github.com/users/$username/events")
 
-    def to_dict(self, data):
-        """converts json data to python dictionary"""
-        dict_data = json.loads(data)
-        return dict_data
+    def fetch_data(self, url: str):
+        """fetchs raw json data from the github api"""
+        try:
+            if not url.startswith("http"):
+                raise RuntimeError("Incorrect and possibly insecure protocol in url")
+            request = Request(url, headers={"Accepts": "application/json"})
+            with urlopen(request) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"Api error: status {response.status}")
+                return response.read().decode()
+        except Exception as e:
+            raise RuntimeError(f"Error fetching data: {e}")
 
-    def get_events(self, url: str):
-        """gets public events of a user from the github api"""
-        if not url.startswith("http"):
-            raise RuntimeError("Incorrect and possibly insecure protocol in url")
+    def parse_json(self, data: str) -> list:
+        """parse json string in to python dictionary"""
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError:
+            raise RuntimeError("Error parsing json response")
 
-        httpRequest = Request(url, headers={"Accepts": "application/json"})
-
-        with urlopen(httpRequest) as response:
-            status_code = response.status
-            content = response.read().decode()
-            content_dict = self.to_dict(content)
-            return status_code, content_dict
+    def parse_event(self, event: dict) -> str:
+        """Parse individual github activity event"""
+        if event["type"] == "PushEvent":
+            size = event["payload"]["size"]
+            repo_name = event["repo"]["name"]
+            return (
+                f"- pushed {size} {'commit' if size==1 else 'commits'} to {repo_name}"
+            )
+        if event["type"] == "PublicEvent":
+            repo_name = event["repo"]["name"]
+            return f"- made {repo_name} repository public"
+        if event["type"] == "WatchEvent":
+            repo_name = event["repo"]["name"]
+            return f"- Starred {repo_name} repository"
+        return None
 
     def do_github_activity(self, username: str):
-        url = self.url.substitute(username=username)
-        status_code, content_dict = self.get_events(url)
-
-        # print(type(content_dict))
-        for activity in content_dict:
-            if activity["type"] == "PushEvent":
-                size = activity["payload"]["size"]
-                repo_name = activity["repo"]["name"]
-                if size == 1:
-                    print(f"- pushed {size} commit to {repo_name}")
-                else:
-                    print(f"- pushed {size} commits to {repo_name}")
-            elif activity["type"] == "PublicEvent":
-                repo_name = activity["repo"]["name"]
-                print(f"- made {repo_name} repository public")
-            elif (
-                activity["type"] == "WatchEvent"
-                and activity["payload"]["action"] == "started"
-            ):
-                repo_name = activity["repo"]["name"]
-                print(f"- starred {repo_name} repository")
-            print("")  # print empty line for readability
+        """Fetch and display recent Github activity for the specified user"""
+        if not username or not username.isalnum():
+            print("Invalid username, please enter a valid Github username")
+            return
+        url = self.BASE_URL_TEMPLATE.substitute(username=username)
+        try:
+            raw_data = self.fetch_data(url)
+            events = self.parse_json(raw_data)
+            for event in events:
+                parsed_event = self.parse_event(event)
+                if parsed_event:
+                    print(parsed_event)
+                    print("\n")
+        except RuntimeError as e:
+            print(f"Error: {e}")
 
     def do_exit(self, line):
         """command to exit the cli"""
         return True
-
-    def postcmd(self, stop, line):
-        """performed after each prompt"""
-        print("")  # print empty line for better readibilty
-        return super().postcmd(stop, line)
 
 
 if __name__ == "__main__":
