@@ -42,4 +42,9 @@ This CLI fetches and displays the following types of GitHub events:
 
 ---
 
-# project url = https://roadmap.sh/projects/github-user-activity
+# project url:
+
+```
+https://roadmap.sh/projects/github-user-activity
+
+```
