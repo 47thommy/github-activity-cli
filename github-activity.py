@@ -39,10 +39,19 @@ class GithubActivityCLI(cmd.Cmd):
                 size = activity["payload"]["size"]
                 repo_name = activity["repo"]["name"]
                 if size == 1:
-                    print(f"pushed {size} commit to {repo_name}")
+                    print(f"- pushed {size} commit to {repo_name}")
                 else:
-                    print(f"pushed {size} commits to {repo_name}")
-        pass
+                    print(f"- pushed {size} commits to {repo_name}")
+            elif activity["type"] == "PublicEvent":
+                repo_name = activity["repo"]["name"]
+                print(f"- made {repo_name} repository public")
+            elif (
+                activity["type"] == "WatchEvent"
+                and activity["payload"]["action"] == "started"
+            ):
+                repo_name = activity["repo"]["name"]
+                print(f"- starred {repo_name} repository")
+            print("")  # print empty line for readability
 
     def do_exit(self, line):
         """command to exit the cli"""
